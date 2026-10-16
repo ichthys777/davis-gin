@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Davis Gin">
+<title>Davis Gin Rummy</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden; }
+  body {
+    background: radial-gradient(ellipse at top, #1f4a2c 0%, #14311f 60%, #0a1a10 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    color:#f0e9d8;
+    display:flex; flex-direction:column;
+    padding: env(safe-area-inset-top) 8px env(safe-area-inset-bottom) 8px;
+    position:relative;
+  }
+
+  /* START SCREEN */
+  .start-screen {
+    position:fixed; inset:0; z-index:600;
+    background: radial-gradient(ellipse at top, #1f4a2c 0%, #14311f 60%, #0a1a10 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding: 30px 20px; gap:18px;
+  }
+  .start-screen.hidden { display:none; }
+  .start-screen h1 { font-size:1.9rem; font-weight:800; color:#ffe484; margin:0 0 8px; text-align:center; text-shadow: 0 3px 8px rgba(0,0,0,0.7); }
+  .start-screen h2 { font-size:0.85rem; color:#8fb894; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; margin: 12px 0 4px; }
+  .gtype-grid { display:flex; gap:12px; width:100%; max-width:360px; }
+  .gtype-card { flex:1; background:#14291b; border:2px solid #2d4d38; border-radius:16px; padding:16px 10px; color:#d4e4c8; font-weight:700; font-size:0.85rem; text-align:center; cursor:pointer; transition: all 0.15s; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+  .gtype-card.selected { background:#2a5a3a; border-color:#ffd966; color:#ffe484; box-shadow: 0 0 0 3px rgba(255,217,102,0.35), 0 6px 12px rgba(0,0,0,0.6); transform: translateY(-2px); }
+  .gtype-card .sub { display:block; font-size:0.65rem; color:#8fb894; margin-top:6px; font-weight:600; letter-spacing:0.3px; line-height:1.3; }
+  .gtype-card.selected .sub { color:#c8dcb8; }
+  .start-btn { width:100%; max-width:360px; background:#c98a2b; color:#fff; border:none; border-radius:22px; padding:16px; font-size:1.05rem; font-weight:800; box-shadow: 0 4px 0 #7a5216, 0 6px 12px rgba(0,0,0,0.5); cursor:pointer; letter-spacing:1px; margin-top:6px; }
+  .start-btn:active { transform:translateY(3px); box-shadow: 0 1px 0 #7a5216, 0 3px 6px rgba(0,0,0,0.5); }
+  .start-btn.secondary { background:#3d6e4a; box-shadow: 0 4px 0 #1a331f, 0 6px 12px rgba(0,0,0,0.5); }
+  .start-btn.secondary:active { box-shadow: 0 1px 0 #1a331f, 0 3px 6px rgba(0,0,0,0.5); }
+
+  /* GAME SCREEN */
+  .top-bar { display:flex; justify-content:space-between; align-items:center; padding:6px 4px; flex-shrink:0; }
+  .scores { display:flex; gap:8px; }
+  .score-box { background:#0a1e10; border-radius:14px; padding:4px 12px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.08); display:flex; flex-direction:column; align-items:center; min-width:66px; }
+  .score-box .name { font-size:0.58rem; color:#8fb894; letter-spacing:1px; font-weight:700; }
+  .score-box .value { font-size:1.3rem; font-weight:800; color:#ffe484; line-height:1.1; }
+  .score-box.ai .value { color:#ff9f9f; }
+  .info-strip { background:#0a1e10; border-radius:30px; padding:4px 10px; margin-top:26px; font-size:0.6rem; font-weight:700; color:#b8d9b0; display:flex; flex-direction:column; gap:2px; align-items:flex-end; box-shadow: inset 0 2px 4px rgba(0,0,0,0.6); }
+  .info-strip .dealer-ind { color:#ffe484; font-size:0.62rem; }
+  .info-strip .rec { display:flex; gap:8px; }
+  .info-strip b { color:#ffe484; }
+  .table { flex:1; display:flex; flex-direction:column; min-height:0; position:relative; padding-top:4px; }
+  .opp-row { display:flex; justify-content:center; align-items:center; flex-wrap:nowrap; height:72px; gap:3px; padding:4px 0; flex-shrink:0; overflow:visible; }
+  .opp-row .card.small { flex:0 1 42px; min-width:0; width:auto; max-width:42px; }
+  .mid-row { flex:1; display:flex; align-items:center; justify-content:center; gap:30px; min-height:0; padding:6px 0; position:relative; }
+  .pile { display:flex; flex-direction:column; align-items:center; gap:3px; position:relative; }
+  .pile .label { font-size:0.56rem; letter-spacing:1px; color:#8fb894; font-weight:700; }
+  .stock-counter { font-size:0.62rem; color:#ffe484; font-weight:700; margin-top:2px; }
+  .pass-btn-wrap { position:absolute; bottom:-44px; left:50%; transform:translateX(-50%); display:none; z-index:30; }
+  .pass-btn-wrap.show { display:block; }
+  .pass-btn { background:#a83a3a; color:#fff; border:none; border-radius:20px; padding:8px 22px; font-weight:800; font-size:0.85rem; letter-spacing:1px; box-shadow: 0 3px 0 #6a1e1e, 0 4px 8px rgba(0,0,0,0.5); cursor:pointer; }
+  .pass-btn:active { transform:translateY(2px); box-shadow: 0 1px 0 #6a1e1e, 0 2px 4px rgba(0,0,0,0.5); }
+  .upcard-hint { position:absolute; top:-24px; left:50%; transform:translateX(-50%); background:#c98a2b; color:#fff; font-size:0.6rem; font-weight:700; padding:3px 10px; border-radius:10px; white-space:nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.5); display:none; }
+  .upcard-hint.show { display:block; }
+  .player-row { display:flex; justify-content:center; align-items:flex-end; flex-wrap:wrap; gap:4px; padding:14px 2px 4px; flex-shrink:0; min-height:92px; position:relative; }
+  .card { width:54px; height:80px; background:#fdfbf4; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow: 0 3px 6px rgba(0,0,0,0.55), 0 0 0 1px #b8ae98; font-weight:800; font-size:1.25rem; line-height:1; color:#1a1a1a; position:relative; transition: box-shadow 0.12s ease, background 0.12s ease; flex-shrink:0; cursor:pointer; touch-action:none; }
+  .card .r { font-size:1.05rem; }
+  .card .s { font-size:1.2rem; margin-top:-2px; }
+  .card.red { color:#c81e1e; }
+  .card.black { color:#111; }
+  .card.back { background: repeating-linear-gradient(45deg, #2a5a8a 0px, #2a5a8a 5px, #1a3d60 5px, #1a3d60 10px); color:transparent; box-shadow: 0 3px 6px rgba(0,0,0,0.55), inset 0 0 0 2px #d4cbb8; }
+  .card.back::after { content:"\2660"; color:rgba(255,255,255,0.28); font-size:1.6rem; position:absolute; }
+  .card.small { width:42px; height:62px; font-size:1rem; }
+  .card.small .r { font-size:0.9rem; }
+  .card.small .s { font-size:1rem; }
+  .card.selected { transform: translateY(-12px); box-shadow: 0 0 0 3px #ffd966, 0 0 0 5px #b8860b, 0 8px 16px rgba(0,0,0,0.75); background:#fff9e6; z-index:20; }
+  .card.dragging { z-index:100; opacity:0.95; box-shadow: 0 12px 22px rgba(0,0,0,0.85), 0 0 0 3px #7fe0a0, 0 0 0 5px #3d9e5a; background:#e9ffe9; }
+  .card.dragover { box-shadow: 0 0 0 3px #7fe0a0, 0 3px 6px rgba(0,0,0,0.5); }
+  .card.empty-slot { background:rgba(0,0,0,0.15); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1); color:transparent; }
+  
+  .card.meld-highlight { box-shadow: 0 0 0 2px #4ade80, 0 0 10px rgba(74, 222, 128, 0.6), 0 3px 6px rgba(0,0,0,0.55); }
+  
+  .card.upcard-highlight { box-shadow: 0 0 0 3px #ffd966, 0 0 16px rgba(255,217,102,0.7), 0 3px 6px rgba(0,0,0,0.55); animation: upPulse 1.5s ease-in-out infinite; }
+  @keyframes upPulse { 0%, 100% { box-shadow: 0 0 0 3px #ffd966, 0 0 16px rgba(255,217,102,0.7), 0 3px 6px rgba(0,0,0,0.55); } 50% { box-shadow: 0 0 0 3px #ffd966, 0 0 26px rgba(255,217,102,1.0), 0 3px 6px rgba(0,0,0,0.55); } }
+  .fly-card { position:fixed; z-index:500; pointer-events:none; transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1); }
+  .fly-card.fade { opacity:0; transform:scale(0.55); }
+  .bottom-bar { display:flex; gap:8px; padding:6px 2px 4px; align-items:center; flex-shrink:0; }
+  .btn { background:#3d6e4a; border:none; border-radius:22px; color:#fff; font-weight:700; font-size:0.82rem; padding:11px 14px; box-shadow: 0 3px 0 #1a331f, 0 4px 8px rgba(0,0,0,0.5); transition: transform 0.05s, box-shadow 0.05s; touch-action: manipulation; cursor:pointer; white-space:nowrap; }
+  .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #1a331f, 0 2px 4px rgba(0,0,0,0.5); }
+  .btn:disabled { opacity:0.35; pointer-events:none; }
+  .btn.dim { opacity:0.5; }
+  .btn.primary { background:#c98a2b; box-shadow: 0 3px 0 #7a5216, 0 4px 8px rgba(0,0,0,0.5); }
+  .btn.primary:active:not(:disabled) { box-shadow: 0 1px 0 #7a5216, 0 2px 4px rgba(0,0,0,0.5); }
+  .btn.danger { background:#a83a3a; box-shadow: 0 3px 0 #6a1e1e, 0 4px 8px rgba(0,0,0,0.5); }
+  .btn.danger:active:not(:disabled) { box-shadow: 0 1px 0 #6a1e1e, 0 2px 4px rgba(0,0,0,0.5); }
+  .btn.small { padding:8px 12px; font-size:0.75rem; }
+  .message { flex:1; background:#0a1e10; border-radius:20px; padding:10px 12px; font-size:0.78rem; font-weight:600; color:#ffe484; text-align:center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.6); min-height:44px; display:flex; align-items:center; justify-content:center; line-height:1.2; position:relative; }
+  .timer-badge { position:absolute; top:-8px; right:8px; background:#a83a3a; color:#fff; font-size:0.62rem; font-weight:800; padding:2px 8px; border-radius:10px; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display:none; }
+  .timer-badge.show { display:block; }
+  .timer-badge.warn { background:#ff4444; animation: timerPulse 0.7s ease-in-out infinite; }
+  @keyframes timerPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.12); } }
+
+  /* SETTINGS */
+  .settings-toggle { position:fixed; top: calc(env(safe-area-inset-top) + 4px); right:6px; z-index:200; background:#1a3d24; border:1px solid #3e7a4e; color:#dfe8d0; border-radius:20px; padding:6px 10px; font-size:0.68rem; font-weight:700; cursor:pointer; }
+  .settings-panel { position:fixed; top:0; left:0; right:0; bottom:0; background: rgba(8, 20, 12, 0.98); z-index:700; display:flex; flex-direction:column; padding: calc(env(safe-area-inset-top) + 50px) 20px calc(env(safe-area-inset-bottom) + 20px); overflow-y:auto; gap:12px; }
+  .settings-panel.hidden { display:none; }
+  .settings-panel h2 { margin:0 0 4px; font-size:1.1rem; text-align:center; color:#ffe484; }
+  .settings-panel h3 { margin:6px 0 2px; font-size:0.8rem; color:#8fb894; text-transform:uppercase; letter-spacing:1px; }
+  .setting-row { display:flex; justify-content:space-between; align-items:center; background:#14291b; border-radius:14px; padding:10px 14px; font-size:0.85rem; border:1px solid #2d4d38; }
+  .setting-row label { color:#d4e4c8; font-weight:600; flex:1; }
+  .setting-row.disabled { opacity:0.4; pointer-events:none; }
+  .setting-row select { background:#0a1e10; color:#ffe484; border:1px solid #4a7a5a; border-radius:10px; padding:8px 10px; font-weight:700; font-size:0.85rem; min-width:110px; text-align:right; -webkit-appearance:none; appearance:none; }
+  .range-wrap { display:flex; align-items:center; gap:10px; }
+  .range-wrap input[type=range] { width:130px; accent-color:#c98a2b; }
+  .range-val { color:#ffe484; font-weight:800; min-width:34px; text-align:right; font-size:0.9rem; }
+  .settings-close { margin-top:auto; padding:14px; font-size:1rem; }
+  .record-panel { background:#14291b; border-radius:14px; padding:12px; border:1px solid #2d4d38; font-size:0.82rem; }
+  .record-panel .row { display:flex; justify-content:space-between; padding:3px 0; }
+  .record-panel .row b { color:#ffe484; }
+  .record-panel .title { color:#8fb894; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; margin-top:8px; }
+  .record-panel .title:first-child { margin-top:0; }
+  .toast { position:fixed; top:40%; left:50%; transform: translate(-50%, -50%) scale(0.8); background: rgba(10, 30, 16, 0.98); color:#ffe484; padding:16px 24px; border-radius:16px; font-size:0.95rem; font-weight:700; box-shadow: 0 8px 24px rgba(0,0,0,0.7), 0 0 0 2px #c98a2b; z-index:900; text-align:center; max-width:80vw; line-height:1.4; opacity:0; pointer-events:none; transition: opacity 0.2s, transform 0.2s; }
+  .toast.show { opacity:1; transform: translate(-50%, -50%) scale(1); }
+
+  .card.newcard::before { content:"NEW"; position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:#c98a2b; color:#fff; font-size:0.5rem; font-weight:800; padding:1px 5px; border-radius:6px; letter-spacing:0.5px; }
+  .result-panel { position:fixed; inset:0; z-index:750; background:rgba(8,20,12,0.97); display:flex; flex-direction:column; gap:10px; padding: calc(env(safe-area-inset-top) + 16px) 14px calc(env(safe-area-inset-bottom) + 16px); overflow-y:auto; }
+  .result-panel.hidden { display:none; }
+  .result-panel h2 { margin:0; text-align:center; color:#ffe484; font-size:1.25rem; }
+  .res-sub { text-align:center; font-size:0.8rem; color:#c8dcb8; line-height:1.35; }
+  .res-label { font-size:0.72rem; color:#8fb894; font-weight:800; letter-spacing:1px; text-transform:uppercase; margin-top:6px; }
+  .res-hand { display:flex; flex-wrap:wrap; gap:8px; }
+  .res-group { display:flex; gap:3px; padding:5px; border-radius:10px; }
+  .res-group.meld { background:rgba(61,158,90,0.22); border:1px solid #3d9e5a; }
+  .res-group.dw { background:rgba(168,58,58,0.22); border:1px solid #a83a3a; }
+  .res-group .card { cursor:default; }
+  .card.laid { box-shadow: 0 0 0 3px #7fe0a0, 0 3px 6px rgba(0,0,0,0.55); }
+  .res-legend { font-size:0.68rem; color:#8fb894; line-height:1.4; }
+  .res-next { margin-top:auto; padding:14px; font-size:1rem; }
+
+  /* MATCH SUMMARY OVERLAY */
+  .match-summary-panel { position:fixed; inset:0; z-index:800; background:rgba(6, 16, 9, 0.98); display:flex; flex-direction:column; align-items:center; justify-content:center; padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px); gap:16px; text-align:center; }
+  .match-summary-panel.hidden { display:none; }
+  .match-summary-card { background:#14291b; border:2px solid #2d4d38; border-radius:20px; padding:20px 16px; width:100%; max-width:380px; box-shadow:0 8px 24px rgba(0,0,0,0.6); }
+  .match-summary-card h2 { font-size:1.6rem; color:#ffe484; margin:0 0 4px; font-weight:800; }
+  .match-summary-card .match-winner-text { font-size:1.1rem; color:#8fb894; font-weight:700; margin-bottom:12px; }
+  .match-score-table { display:flex; justify-content:space-around; background:#0a1e10; border-radius:14px; padding:12px 8px; margin:10px 0; border:1px solid #2d4d38; }
+  .match-score-item { display:flex; flex-direction:column; align-items:center; }
+  .match-score-item .label { font-size:0.7rem; color:#8fb894; font-weight:700; letter-spacing:1px; }
+  .match-score-item .val { font-size:1.8rem; font-weight:800; color:#ffe484; line-height:1.1; }
+  .match-score-item.ai .val { color:#ff9f9f; }
+  .summary-stats { text-align:left; font-size:0.82rem; color:#d4e4c8; margin-top:10px; display:flex; flex-direction:column; gap:6px; background:#0a1e10; border-radius:14px; padding:10px 14px; border:1px solid #2d4d38; }
+  .summary-stats .row { display:flex; justify-content:space-between; }
+  .summary-stats .row b { color:#ffe484; }
+  .match-btn-group { display:flex; flex-direction:column; gap:10px; width:100%; max-width:380px; margin-top:4px; }
+  @media (max-width: 460px) { .card:not(.small) { width:calc((100vw - 16px - 36px) / 6); height:calc((100vw - 16px - 36px) / 6 * 1.4); } }
+  @media (max-height: 700px) { .card:not(.small) { height:70px; } .opp-row { height:56px; } .player-row { min-height:80px; } .mid-row { gap:22px; } }
+  @media (max-height: 600px) { .card:not(.small) { height:62px; } .card .r { font-size:0.85rem; } .card .s { font-size:0.9rem; } }
+</style>
+</head>
+<body>
+<div class="start-screen" id="startScreen">
+  <h1>Davis Gin Rummy</h1>
+  <h2>Choose Game Type</h2>
+  <div class="gtype-grid">
+    <div class="gtype-card" data-gtype="straight">
+      Straight Gin
+      <span class="sub">No knock. Must meld all 10 cards.</span>
+    </div>
+    <div class="gtype-card selected" data-gtype="oneCard">
+      One Card Knock
+      <span class="sub">Knock with 1 deadwood card. Layoffs allowed.</span>
+    </div>
+  </div>
+  <button class="start-btn secondary" id="startSettingsBtn">&#9881;&#xFE0E; Settings</button>
+  <button class="start-btn" id="startGameBtn">&#9654; START GAME</button>
+</div>
+
+<!-- GAME SCREEN -->
+<button class="settings-toggle" id="settingsToggle">&#9881;&#xFE0E; Settings</button>
+
+<div class="top-bar">
+  <div class="scores">
+    <div class="score-box"><div class="name">YOU</div><div class="value" id="playerScoreDisplay">0</div></div>
+    <div class="score-box ai"><div class="name">AI</div><div class="value" id="aiScoreDisplay">0</div></div>
+  </div>
+  <div class="info-strip">
+    <div class="dealer-ind" id="dealerIndicator">Dealer: -</div>
+    <div class="rec"><span>W:<b id="winsDisplay">0</b></span><span>L:<b id="lossesDisplay">0</b></span><span>Ser:<b id="seriesDisplay">0-0</b></span></div>
+  </div>
+</div>
+
+<div class="table">
+  <div class="opp-row" id="opponentHandRow"></div>
+
+  <div class="mid-row">
+    <div class="pile" id="discardPileWrap">
+      <div class="card" id="discardCard" style="pointer-events:none;"></div>
+      <div class="label">DISCARD</div>
+      <div class="upcard-hint" id="upcardHint">Tap to take</div>
+      <div class="pass-btn-wrap" id="passBtnWrap">
+        <button class="pass-btn" id="passBtn">PASS</button>
+      </div>
+    </div>
+    <div class="pile" id="stockPileWrap">
+      <div class="card back" id="deckCard" role="button"></div>
+      <div class="label">STOCK</div>
+      <div class="stock-counter" id="stockCounter">Stock: 31</div>
+    </div>
+  </div>
+
+  <div class="player-row" id="playerHandRow"></div>
+</div>
+
+<div class="bottom-bar">
+  <button class="btn small" id="newGameBtn">New</button>
+  <button class="btn small" id="sortBtn">Sort</button>
+  <div class="message" id="messageBox">Tap STOCK or DISCARD to draw<span class="timer-badge" id="timerBadge">30</span></div>
+  <button class="btn small primary" id="knockBtn" disabled>Knock</button>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div class="settings-panel hidden" id="settingsPanel">
+  <h2>Settings</h2>
+
+  <h3>Game Type</h3>
+  <div class="setting-row">
+    <label for="setGameType">Game</label>
+    <select id="setGameType">
+      <option value="straight">Straight Gin</option>
+      <option value="oneCard" selected>One Card Knock</option>
+    </select>
+  </div>
+
+  <h3>Opponent</h3>
+  <div class="setting-row">
+    <label for="aiLevelSelect">AI Level</label>
+    <select id="aiLevelSelect">
+      <option value="beginner">Beginner</option>
+      <option value="novice" selected>Novice</option>
+      <option value="pro">Pro</option>
+    </select>
+  </div>
+
+  <h3>Game Score</h3>
+  <div class="setting-row">
+    <label>Target Score</label>
+    <div class="range-wrap">
+      <input type="range" id="targetScoreInput" value="100" min="10" max="300" step="5">
+      <span class="range-val" id="targetScoreVal">100</span>
+    </div>
+  </div>
+
+  <h3>Bonuses</h3>
+  <div class="setting-row">
+    <label>Gin Bonus</label>
+    <div class="range-wrap">
+      <input type="range" id="ginBonusInput" value="20" min="0" max="100" step="5">
+      <span class="range-val" id="ginBonusVal">20</span>
+    </div>
+  </div>
+  <div class="setting-row" id="undercutRow">
+    <label>Undercut Bonus</label>
+    <div class="range-wrap">
+      <input type="range" id="undercutInput" value="20" min="0" max="100" step="5">
+      <span class="range-val" id="undercutVal">20</span>
+    </div>
+  </div>
+
+  <h3>Turn Timer</h3>
+  <div class="setting-row">
+    <label for="timerSelect">Seconds per Turn</label>
+    <select id="timerSelect">
+      <option value="0" selected>Off</option>
+      <option value="15">15</option>
+      <option value="30">30</option>
+      <option value="45">45</option>
+      <option value="60">60</option>
+    </select>
+  </div>
+
+  <h3>Your Record vs AI</h3>
+  <div class="record-panel">
+    <div class="title">All-time</div>
+    <div class="row"><span>Wins</span><b id="recWins">0</b></div>
+    <div class="row"><span>Losses</span><b id="recLosses">0</b></div>
+    <div class="title">Current Series (best of 5)</div>
+    <div class="row"><span>You</span><b id="recSeriesYou">0</b></div>
+    <div class="row"><span>AI</span><b id="recSeriesAI">0</b></div>
+    <div class="title">Series Won / Lost</div>
+    <div class="row"><span>Series Wins</span><b id="recSeriesWins">0</b></div>
+    <div class="row"><span>Series Losses</span><b id="recSeriesLosses">0</b></div>
+  </div>
+
+  <button class="btn settings-close" id="settingsClose">Done</button>
+  <button class="btn small danger" id="resetRecordBtn" style="margin-top:4px;">Reset All Record</button>
+</div>
+
+<!-- HAND RESULT -->
+<div class="result-panel hidden" id="resultPanel">
+  <h2 id="resTitle"></h2>
+  <div class="res-sub" id="resSub"></div>
+  <div class="res-label" id="resAILabel">AI's hand</div>
+  <div class="res-hand" id="resAI"></div>
+  <div class="res-label" id="resYouLabel">Your hand</div>
+  <div class="res-hand" id="resYou"></div>
+  <div class="res-legend">Green boxes = melds &middot; Red box = deadwood &middot; Outlined card = laid off on the knocker's melds</div>
+  <button class="btn primary res-next" id="resNext">Next Hand</button>
+</div>
+
+<!-- MATCH SUMMARY SCREEN -->
+<div class="match-summary-panel hidden" id="matchSummaryPanel">
+  <div class="match-summary-card">
+    <h2 id="summaryTitle">Match Finished!</h2>
+    <div class="match-winner-text" id="summaryWinnerText">You Won!</div>
+    
+    <div class="match-score-table">
+      <div class="match-score-item">
+        <span class="label">YOU</span>
+        <span class="val" id="summaryPlayerScore">100</span>
+      </div>
+      <div class="match-score-item ai">
+        <span class="label">AI</span>
+        <span class="val" id="summaryAIScore">85</span>
+      </div>
+    </div>
+
+    <div class="summary-stats">
+      <div class="row"><span>Game Type:</span><b id="summaryGameType">One Card Knock</b></div>
+      <div class="row"><span>All-Time Wins / Losses:</span><b id="summaryRecord">0 - 0</b></div>
+      <div class="row"><span>Best of 5 Series Score:</span><b id="summarySeriesScore">0 - 0</b></div>
+      <div class="row"><span>Series Wins / Losses:</span><b id="summarySeriesWinsLosses">0 - 0</b></div>
+    </div>
+  </div>
+
+  <div class="match-btn-group">
+    <button class="start-btn" id="playAgainBtn">&#9654; PLAY AGAIN</button>
+    <button class="start-btn secondary" id="homePageBtn">&#127968; HOME PAGE</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+const SUITS = ['\u2660','\u2665','\u2666','\u2663'];
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const SUIT_RED = { '\u2665':true, '\u2666':true };
+const STORAGE_KEY = 'davisGinRummy_v3';
+
+function rankVal(r){ if(r==='A')return 1; if(r==='J')return 11; if(r==='Q')return 12; if(r==='K')return 13; return parseInt(r,10); }
+function cardPts(c){ return Math.min(rankVal(c.rank), 10); }
+function isRed(c){ return SUIT_RED[c.suit]; }
+
+const state = {
+  playerScore: 0, aiScore: 0,
+  targetScore: 100, ginBonus: 20, undercutBonus: 20,
+  gameType: 'oneCard', aiLevel: 'novice',
+  timerSeconds: 0,
+  deck: [], playerHand: [], aiHand: [], discardPile: [],
+  upcard: null,
+  dealer: 'player',
+  turn: 'player',
+  phase: 'idle',
+  offerStage: 'none',
+  selectedId: null,
+  dragId: null, dragOverId: null,
+  dragStartX: 0, dragStartY: 0, dragMoved: false,
+  handOver: false,
+  reveal: false,
+  lastMsg: '', note: '', newCardId: null, nextAction: null,
+  cardCounter: 0,
+  record: { wins:0, losses:0, seriesWins:0, seriesLosses:0, curYou:0, curAI:0 },
+  busy: false,
+  timerId: null, timerLeft: 0,
+  pendingTimeouts: []
+};
+
+const $ = id => document.getElementById(id);
+
+function later(fn, ms){
+  const id = setTimeout(()=>{
+    state.pendingTimeouts = state.pendingTimeouts.filter(x=>x!==id);
+    fn();
+  }, ms);
+  state.pendingTimeouts.push(id);
+  return id;
+}
+function cancelPending(){
+  state.pendingTimeouts.forEach(clearTimeout);
+  state.pendingTimeouts = [];
+  document.querySelectorAll('.fly-card').forEach(e=>e.remove());
+}
+
+function buildDeck(){
+  const d = [];
+  let cardIdCounter = 0;
+  for(const s of SUITS) {
+    for(const r of RANKS){
+      d.push({ id:'c_'+s+'_'+r+'_'+(++cardIdCounter), suit:s, rank:r });
+    }
+  }
+  // Fisher-Yates shuffle
+  for(let i=d.length-1;i>0;i--){ 
+    const j=Math.floor(Math.random()*(i+1)); 
+    [d[i],d[j]]=[d[j],d[i]]; 
+  }
+  return d;
+}
+
+function sortHandByMelds(hand){
+  if (!hand || !hand.length) return;
+  // Analyze hand to find optimum meld grouping (maximizing melded cards / minimizing deadwood)
+  const an = analyzeHand(hand, 'count');
+  const meldedCards = [];
+  const meldedIds = new Set();
+
+  an.melds.forEach(m => {
+    // Sort cards within each meld
+    const sortedM = m.slice().sort((a,b)=> (rankVal(a.rank)-rankVal(b.rank)) || (SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit)));
+    sortedM.forEach(c => {
+      meldedCards.push(c);
+      meldedIds.add(c.id);
+    });
+  });
+
+  // Gather deadwood cards not in any meld and sort them by rank and suit
+  const deadwoodCards = hand
+    .filter(c => !meldedIds.has(c.id))
+    .sort((a,b)=> (rankVal(a.rank)-rankVal(b.rank)) || (SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit)));
+  
+  // Reconstruct hand array with melds first, then deadwood
+  hand.length = 0;
+  hand.push(...meldedCards, ...deadwoodCards);
+}
+
+function sortHand(hand){
+  sortHandByMelds(hand);
+}
+
+function analyzeHand(hand, mode){
+  const n = hand.length;
+  const cands = [];
+  const byRank = {};
+  hand.forEach((c,i)=>{ (byRank[c.rank] = byRank[c.rank]||[]).push(i); });
+  for(const r in byRank){
+    const g = byRank[r];
+    if(g.length >= 3){
+      for(let a=0;a<g.length;a++) for(let b=a+1;b<g.length;b++) for(let c=b+1;c<g.length;c++){
+        cands.push({ idx:[g[a],g[b],g[c]] });
+      }
+      if(g.length === 4) cands.push({ idx:g.slice() });
+    }
+  }
+  const bySuit = {};
+  hand.forEach((c,i)=>{ (bySuit[c.suit] = bySuit[c.suit]||[]).push(i); });
+  for(const s in bySuit){
+    const arr = bySuit[s].slice().sort((a,b)=>rankVal(hand[a].rank)-rankVal(hand[b].rank));
+    for(let i=0;i<arr.length;i++){
+      for(let j=i+2;j<arr.length;j++){
+        let ok = true;
+        for(let k=i+1;k<=j;k++){
+          if(rankVal(hand[arr[k]].rank) !== rankVal(hand[arr[k-1]].rank)+1){ ok=false; break; }
+        }
+        if(!ok) break;
+        cands.push({ idx: arr.slice(i, j+1) });
+      }
+    }
+  }
+  cands.forEach(c=>{ c.mask = c.idx.reduce((m,i)=>m|(1<<i),0); });
+  const pts = hand.map(cardPts);
+  let best = { dw: Infinity, cnt: 99, chosen: [], skipped: 0 };
+
+  function dfs(i, used, skipped, skipPts, skipCnt, chosen){
+    if(mode === 'count'){
+      if(skipCnt > best.cnt || (skipCnt === best.cnt && skipPts > best.dw)) return;
+    } else if(skipPts > best.dw) return;
+    while(i<n && (used>>i)&1) i++;
+    if(i>=n){
+      const better = (mode === 'count')
+        ? (skipCnt < best.cnt || (skipCnt === best.cnt && skipPts < best.dw))
+        : (skipPts < best.dw || (skipPts === best.dw && skipCnt < best.cnt));
+      if(better){
+        best = { dw: skipPts, cnt: skipCnt, chosen: chosen.slice(), skipped };
+      }
+      return;
+    }
+    for(const c of cands){
+      if(!((c.mask>>i)&1)) continue;
+      if(c.mask & used) continue;
+      if(c.mask & skipped) continue;
+      chosen.push(c);
+      dfs(i+1, used|c.mask, skipped, skipPts, skipCnt, chosen);
+      chosen.pop();
+    }
+    dfs(i+1, used, skipped|(1<<i), skipPts+pts[i], skipCnt+1, chosen);
+  }
+  dfs(0, 0, 0, 0, 0, []);
+
+  const melds = best.chosen.map(c=>c.idx.map(i=>hand[i]));
+  let usedMask = 0; best.chosen.forEach(c=>{ usedMask |= c.mask; });
+  const deadwood = hand.filter((c,i)=>!((usedMask>>i)&1));
+  return { melds, deadwood };
+}
+
+function deadwoodPoints(hand){
+  return analyzeHand(hand).deadwood.reduce((s,c)=>s+cardPts(c),0);
+}
+
+function bestKnock(hand, mode){
+  let best = null;
+  for(let i=0;i<hand.length;i++){
+    const rest = hand.filter((c,k)=>k!==i);
+    const a = analyzeHand(rest, mode);
+    const p = a.deadwood.reduce((t,c)=>t+cardPts(c),0);
+    const cnt = a.deadwood.length;
+    let better;
+    if(!best) better = true;
+    else if(mode === 'count') better = cnt < best.cnt || (cnt === best.cnt && p < best.pts);
+    else better = p < best.pts || (p === best.pts && cnt < best.cnt);
+    if(better) best = { card: hand[i], pts: p, cnt: cnt };
+  }
+  return best;
+}
+
+function knockAllowed(hand){
+  const limit = state.gameType === 'straight' ? 0 : 1;
+  if(hand.length === 10){
+    const a = analyzeHand(hand, 'count');
+    const cnt = a.deadwood.length;
+    const pts = a.deadwood.reduce((t,c)=>t+cardPts(c),0);
+    return cnt <= limit ? { card: null, pts: pts, cnt: cnt } : null;
+  }
+  if(hand.length !== 11) return null;
+  const bk = bestKnock(hand, 'count');
+  return bk.cnt <= limit ? bk : null;
+}
+
+let lastLayoff = [];
+function layoffPoints(oppHand, knockerMelds, gameType, isGin){
+  lastLayoff = [];
+  if(isGin) return deadwoodPoints(oppHand);
+  if(gameType === 'straight') return deadwoodPoints(oppHand);
+  const targets = [];
+  for(const m of knockerMelds){
+    const isSet = m.every(c=>c.rank===m[0].rank);
+    if(isSet){
+      targets.push({ rank: m[0].rank, count: m.length, suits: m.map(c=>c.suit), type:'set' });
+    } else {
+      const sorted = m.slice().sort((a,b)=>rankVal(a.rank)-rankVal(b.rank));
+      targets.push({ suit: m[0].suit, lo: rankVal(sorted[0].rank), hi: rankVal(sorted[sorted.length-1].rank), type:'run' });
+    }
+  }
+  const remaining = [];
+  const dw = analyzeHand(oppHand).deadwood.slice().sort((a,b)=>rankVal(a.rank)-rankVal(b.rank));
+  for(const c of dw){
+    let placed = false;
+    for(const t of targets){
+      if(t.type==='run' && c.suit===t.suit){
+        const rv = rankVal(c.rank);
+        if(rv === t.lo-1){ t.lo = rv; placed = true; break; }
+        if(rv === t.hi+1){ t.hi = rv; placed = true; break; }
+      } else if(t.type==='set' && c.rank===t.rank && t.count < 4){
+        t.count++; placed = true; break;
+      }
+    }
+    if(!placed) remaining.push(c);
+  }
+  lastLayoff = dw.filter(c=>remaining.indexOf(c) < 0);
+  return remaining.reduce((s,c)=>s+cardPts(c),0);
+}
+
+function makeCardEl(card, opts){
+  opts = opts || {};
+  const el = document.createElement('div');
+  el.className = 'card ' + (isRed(card)?'red':'black');
+  if(opts.small) el.classList.add('small');
+  el.dataset.cid = card.id;
+  el.innerHTML = '<div class="r">'+card.rank+'</div><div class="s">'+card.suit+'</div>';
+  return el;
+}
+
+function makeBackEl(small){
+  const el = document.createElement('div');
+  el.className = 'card back' + (small?' small':'');
+  return el;
+}
+
+function offerStagePlayer(){
+  if(state.offerStage==='nondealer') return state.dealer==='ai' ? 'player' : 'ai';
+  if(state.offerStage==='dealer') return state.dealer==='ai' ? 'ai' : 'player';
+  return 'none';
+}
+
+function setMsg(t){
+  const msg = $('messageBox');
+  msg.firstChild.nodeValue = t;
+}
+
+function render(){
+  $('playerScoreDisplay').textContent = state.playerScore;
+  $('aiScoreDisplay').textContent = state.aiScore;
+  $('winsDisplay').textContent = state.record.wins;
+  $('lossesDisplay').textContent = state.record.losses;
+  $('seriesDisplay').textContent = state.record.curYou + '-' + state.record.curAI;
+  $('dealerIndicator').textContent = 'Dealer: ' + (state.dealer==='player'?'You':'AI');
+
+  const opp = $('opponentHandRow'); opp.innerHTML = '';
+  for(let i=0;i<state.aiHand.length;i++){
+    opp.appendChild(state.reveal ? makeCardEl(state.aiHand[i], {small:true}) : makeBackEl(true));
+  }
+
+  const dc = $('discardCard');
+  if(state.phase === 'offer' && state.upcard){
+    const c = state.upcard;
+    dc.className = 'card ' + (isRed(c)?'red':'black') + ' upcard-highlight';
+    dc.innerHTML = '<div class="r">'+c.rank+'</div><div class="s">'+c.suit+'</div>';
+  } else if(state.discardPile.length){
+    const c = state.discardPile[state.discardPile.length-1];
+    dc.className = 'card ' + (isRed(c)?'red':'black');
+    dc.innerHTML = '<div class="r">'+c.rank+'</div><div class="s">'+c.suit+'</div>';
+  } else {
+    dc.className = 'card empty-slot';
+    dc.innerHTML = '';
+  }
+
+  $('stockCounter').textContent = 'Stock: ' + state.deck.length;
+
+  if(state.dragId !== null && Date.now() - state.dragT > 8000) state.dragId = null;
+  if(state.dragId === null){
+    const playerMeldAnalysis = analyzeHand(state.playerHand, 'count');
+    const meldedSet = new Set();
+    playerMeldAnalysis.melds.forEach(m => m.forEach(c => meldedSet.add(c.id)));
+
+    const pr = $('playerHandRow'); pr.innerHTML = '';
+    for(const c of state.playerHand){
+      const el = makeCardEl(c);
+      if(meldedSet.has(c.id)) el.classList.add('meld-highlight');
+      if(c.id === state.selectedId) el.classList.add('selected');
+      if(c.id === state.newCardId) el.classList.add('newcard');
+      el.addEventListener('pointerdown', (e)=>onPointerDown(e, c.id));
+      pr.appendChild(el);
+    }
+  }
+
+  const kb = $('knockBtn');
+  let info = null;
+  if(state.turn==='player' && (state.phase==='discard' || state.phase==='draw') && !state.busy && !state.handOver){
+    info = knockAllowed(state.playerHand);
+  }
+  kb.disabled = false;
+  kb.classList.toggle('dim', !info);
+  kb.textContent = (state.gameType==='straight' || (info && info.cnt===0)) ? 'Gin!' : 'Knock';
+
+  if(state.handOver){ setMsg(state.lastMsg || 'Hand over'); }
+  else if(state.phase==='offer'){
+    setMsg(offerStagePlayer()==='player' ? 'Tap upcard to take, or PASS' : 'AI considering upcard\u2026');
+  }
+  else if(state.turn==='player'){
+    if(state.phase==='draw'){
+      setMsg(info ? ('You can go out! Tap ' + kb.textContent + ' (or draw)') : 'Tap STOCK or DISCARD to draw');
+    }
+    else if(state.phase==='discard') setMsg(state.selectedId ? 'Tap again to discard' : 'Tap to select, drag to reorder');
+  } else {
+    setMsg(state.note || 'AI is thinking\u2026');
+  }
+
+  const showOffer = state.phase==='offer' && offerStagePlayer()==='player' && !state.busy;
+  $('passBtnWrap').classList.toggle('show', showOffer);
+  $('upcardHint').classList.toggle('show', showOffer);
+
+  const tb = $('timerBadge');
+  if(state.turn==='player' && state.timerSeconds > 0 && !state.handOver && (state.phase==='draw'||state.phase==='discard') && !state.busy){
+    tb.classList.add('show');
+    tb.textContent = state.timerLeft;
+    tb.classList.toggle('warn', state.timerLeft <= 5);
+  } else {
+    tb.classList.remove('show');
+  }
+
+  $('recWins').textContent = state.record.wins;
+  $('recLosses').textContent = state.record.losses;
+  $('recSeriesYou').textContent = state.record.curYou;
+  $('recSeriesAI').textContent = state.record.curAI;
+  $('recSeriesWins').textContent = state.record.seriesWins;
+  $('recSeriesLosses').textContent = state.record.seriesLosses;
+}
+
+function playerDiscard(cid){
+  stopTimer();
+  const idx = state.playerHand.findIndex(c=>c.id===cid);
+  if(idx < 0) return;
+  const [c] = state.playerHand.splice(idx,1);
+  state.discardPile.push(c);
+  state.selectedId = null;
+  state.newCardId = null;
+  state.phase = 'draw';
+  state.turn = 'ai';
+  render();
+  if(checkStockOut()) return;
+  later(aiTurn, 600);
+}
+
+function onCardTap(cid){
+  if(state.busy || state.handOver) return;
+  if(state.turn!=='player' || state.phase!=='discard') return;
+  if(state.selectedId === cid){
+    playerDiscard(cid);
+    return;
+  }
+  state.selectedId = cid;
+  render();
+}
+
+function onPointerDown(e, cid){
+  state.dragId = cid;
+  state.dragT = Date.now();
+  state.dragStartX = e.clientX;
+  state.dragStartY = e.clientY;
+  state.dragMoved = false;
+  state.dragOverId = null;
+  const el = e.currentTarget;
+  try { el.setPointerCapture(e.pointerId); } catch(err){}
+  el.addEventListener('pointermove', onPointerMove);
+  el.addEventListener('pointerup', onPointerUpSelf);
+  el.addEventListener('pointercancel', onPointerUpSelf);
+}
+
+function onPointerMove(e){
+  const el = e.currentTarget;
+  const dx = e.clientX - state.dragStartX;
+  const dy = e.clientY - state.dragStartY;
+  if(!state.dragMoved && (Math.abs(dx)>8 || Math.abs(dy)>8)){
+    state.dragMoved = true;
+    el.classList.add('dragging');
+  }
+  if(state.dragMoved){
+    el.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(1.08)';
+    const tx = e.clientX, ty = e.clientY;
+    const cards = document.querySelectorAll('#playerHandRow .card');
+    cards.forEach(card=>{
+      if(card === el) return;
+      const r = card.getBoundingClientRect();
+      if(tx >= r.left && tx <= r.right && ty >= r.top && ty <= r.bottom){
+        state.dragOverId = card.dataset.cid;
+        cards.forEach(c=>c.classList.remove('dragover'));
+        card.classList.add('dragover');
+      }
+    });
+  }
+}
+
+function onPointerUpSelf(e){
+  const el = e.currentTarget;
+  el.removeEventListener('pointermove', onPointerMove);
+  el.removeEventListener('pointerup', onPointerUpSelf);
+  el.removeEventListener('pointercancel', onPointerUpSelf);
+
+  const moved = state.dragMoved;
+  const startId = state.dragId;
+  const overId = state.dragOverId;
+  const cancelled = e.type === 'pointercancel';
+
+  el.style.transform = '';
+  document.querySelectorAll('.card').forEach(x=>{
+    x.classList.remove('dragging','dragover');
+    x.style.transform = '';
+  });
+
+  state.dragId = null;
+  state.dragOverId = null;
+  state.dragMoved = false;
+
+  if(moved && startId && overId && startId !== overId){
+    const from = state.playerHand.findIndex(c=>c.id===startId);
+    const to = state.playerHand.findIndex(c=>c.id===overId);
+    if(from>=0 && to>=0){
+      const [c] = state.playerHand.splice(from,1);
+      state.playerHand.splice(to,0,c);
+    }
+    render();
+  } else if(!moved && startId && !cancelled){
+    onCardTap(startId);
+  } else {
+    render();
+  }
+}
+
+function animateFly(fromEl, toEl, card, onDone, opts){
+  opts = opts || {};
+  const dur = opts.duration || 600;
+  const sz = $('discardCard').getBoundingClientRect();
+  const w = sz.width || 54, h = sz.height || 80;
+  const A = fromEl.getBoundingClientRect();
+  const B = toEl.getBoundingClientRect();
+  const fly = opts.faceDown ? makeBackEl(false) : makeCardEl(card);
+  fly.classList.add('fly-card');
+  fly.style.width = w + 'px';
+  fly.style.height = h + 'px';
+  fly.style.left = (A.left + A.width/2 - w/2) + 'px';
+  fly.style.top  = (A.top + A.height/2 - h/2) + 'px';
+  fly.style.transition = 'left ' + dur + 'ms ease-in-out, top ' + dur + 'ms ease-in-out';
+  fly.style.boxShadow = '0 0 0 3px #ffd966, 0 10px 22px rgba(0,0,0,0.75)';
+  document.body.appendChild(fly);
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      fly.style.left = (B.left + B.width/2 - w/2) + 'px';
+      fly.style.top  = (B.top + B.height/2 - h/2) + 'px';
+    });
+  });
+  later(()=>{ fly.remove(); if(onDone) onDone(); }, dur + 60);
+}
+
+function startTimer(){
+  stopTimer();
+  if(!state.timerSeconds) return;
+  if(state.turn !== 'player' || state.handOver || state.busy) return;
+  if(state.phase !== 'draw' && state.phase !== 'discard') return;
+  state.timerLeft = state.timerSeconds;
+  render();
+  state.timerId = setInterval(()=>{
+    state.timerLeft--;
+    if(state.timerLeft <= 0){
+      stopTimer();
+      timeoutAction();
+    } else {
+      render();
+    }
+  }, 1000);
+}
+function stopTimer(){
+  if(state.timerId){ clearInterval(state.timerId); state.timerId = null; }
+}
+function timeoutAction(){
+  if(state.handOver || state.busy) return;
+  if(state.turn !== 'player') return;
+  if(state.phase === 'draw'){
+    showToast('Time up - auto-draw');
+    drawFromDeck();
+  } else if(state.phase === 'discard'){
+    showToast('Time up - auto-discard');
+    const bk = bestKnock(state.playerHand);
+    const pick = bk ? bk.card : state.playerHand[state.playerHand.length-1];
+    state.selectedId = pick.id;
+    render();
+    later(()=>{ if(!state.handOver) playerDiscard(pick.id); }, 250);
+  }
+}
+
+function startHand(){
+  stopTimer();
+  state.deck = buildDeck();
+  state.playerHand = state.deck.splice(0,10);
+  state.aiHand = state.deck.splice(0,10);
+  state.upcard = state.deck.pop();
+  state.discardPile = [];
+  state.phase = 'offer';
+  state.offerStage = 'nondealer';
+  state.selectedId = null;
+  state.handOver = false;
+  state.reveal = false;
+  state.note = '';
+  state.newCardId = null;
+  state.busy = false;
+  sortHand(state.playerHand);
+  sortHand(state.aiHand);
+  render();
+  later(processOfferStage, 600);
+}
+
+function processOfferStage(){
+  if(state.phase !== 'offer') return;
+  const who = offerStagePlayer();
+  if(who === 'player'){ render(); return; }
+  if(who !== 'ai') return;
+  state.busy = true;
+  render();
+  later(()=>{
+    const wants = aiWantsUpcard(state.upcard);
+    if(wants){
+      const c = state.upcard;
+      state.upcard = null;
+      state.note = 'AI TAKES the upcard (' + c.rank + c.suit + ')';
+      render();
+      animateFly($('discardCard'), $('opponentHandRow'), c, ()=>{
+        state.aiHand.push(c);
+        sortHand(state.aiHand);
+        state.note = '';
+        advanceAfterOffer(true, 'ai');
+      }, { duration: 1700 });
+    } else {
+      showToast('AI passes');
+      advanceAfterOffer(false, 'ai');
+    }
+  }, 800);
+}
+
+function handleTakeUpcard(){
+  if(state.phase !== 'offer' || state.busy) return;
+  if(offerStagePlayer() !== 'player') return;
+  state.busy = true;
+  const c = state.upcard;
+  animateFly($('discardCard'), $('playerHandRow'), c, ()=>{
+    state.playerHand.push(c);
+    state.newCardId = c.id;
+    state.upcard = null;
+    sortHandByMelds(state.playerHand);
+    advanceAfterOffer(true, 'player');
+  });
+}
+
+function handlePass(){
+  if(state.phase !== 'offer' || state.busy) return;
+  if(offerStagePlayer() !== 'player') return;
+  advanceAfterOffer(false, 'player');
+}
+
+function advanceAfterOffer(took, who){
+  state.busy = false;
+  if(took){
+    state.phase = 'discard';
+    state.offerStage = 'none';
+    state.upcard = null;
+    state.discardPile = [];
+    if(who === 'player'){
+      state.turn = 'player';
+      state.selectedId = null;
+      render();
+      startTimer();
+    } else {
+      state.turn = 'ai';
+      render();
+      later(aiDiscardOnly, 500);
+    }
+    return;
+  }
+  if(state.offerStage === 'nondealer'){
+    state.offerStage = 'dealer';
+    render();
+    later(processOfferStage, 500);
+    return;
+  }
+  state.phase = 'draw';
+  state.offerStage = 'none';
+  if(state.upcard){
+    state.discardPile.push(state.upcard);
+    state.upcard = null;
+  }
+  state.turn = (state.dealer==='ai') ? 'player' : 'ai';
+  render();
+  if(state.turn === 'ai'){
+    later(aiTurn, 600);
+  } else {
+    startTimer();
+  }
+}
+
+function drawFromDeck(){
+  if(state.busy || state.handOver) return;
+  if(state.turn!=='player' || state.phase!=='draw') return;
+  stopTimer();
+  if(state.deck.length === 0){ endHandDraw(); return; }
+  const drawn = state.deck.pop();
+  state.playerHand.push(drawn);
+  state.newCardId = drawn.id;
+  sortHandByMelds(state.playerHand);
+  state.phase = 'discard';
+  state.selectedId = null;
+  render();
+  startTimer();
+}
+
+function drawFromDiscard(){
+  if(state.busy || state.handOver) return;
+  if(state.turn!=='player' || state.phase!=='draw') return;
+  if(state.discardPile.length === 0) return;
+  stopTimer();
+  const taken = state.discardPile.pop();
+  state.playerHand.push(taken);
+  state.newCardId = taken.id;
+  sortHandByMelds(state.playerHand);
+  state.phase = 'discard';
+  state.selectedId = null;
+  render();
+  startTimer();
+}
+
+function explainNoKnock(){
+  const hand = state.playerHand;
+  const limit = state.gameType === 'straight' ? 0 : 1;
+  let an;
+  if(hand.length === 11){
+    const bk = bestKnock(hand, 'count');
+    an = analyzeHand(hand.filter(c=>c.id !== bk.card.id), 'count');
+  } else {
+    an = analyzeHand(hand, 'count');
+  }
+  const names = an.deadwood.map(c=>c.rank + c.suit).join(' ');
+  showToast("Can't " + (limit === 0 ? 'go gin' : 'knock') + " yet: the game counts " + an.deadwood.length +
+            " deadwood card" + (an.deadwood.length === 1 ? '' : 's') + " (" + names + "). Need " + limit + " or fewer. Runs are ace-low only (A-2-3 yes, Q-K-A no).", 5500);
+}
+
+function playerKnock(){
+  if(state.handOver) return;
+  if(state.turn!=='player' || state.busy || (state.phase!=='discard' && state.phase!=='draw')){
+    showToast("It's not your turn yet");
+    return;
+  }
+  const info = knockAllowed(state.playerHand);
+  if(!info){ explainNoKnock(); return; }
+  stopTimer();
+  state.busy = true;
+  if(info.card){
+    const idx = state.playerHand.findIndex(c=>c.id===info.card.id);
+    const [c] = state.playerHand.splice(idx,1);
+    state.discardPile.push(c);
+  }
+  state.selectedId = null;
+  state.turn = 'ai';
+  render();
+  later(()=>resolveKnock('player'), 400);
+}
+
+function aiTurn(){
+  if(state.handOver) return;
+  state.busy = false;
+
+  if(state.deck.length === 0 && state.discardPile.length === 0){ endHandDraw(); return; }
+
+  const pre = knockAllowed(state.aiHand);
+  if(pre){
+    const preGin = pre.cnt === 0;
+    const preChance = preGin ? 1 : (state.aiLevel==='pro' ? 1 : state.aiLevel==='novice' ? 0.85 : 0.4);
+    if(Math.random() < preChance){
+      state.busy = true;
+      state.note = preGin ? 'AI goes GIN!' : 'AI KNOCKS!';
+      render();
+      later(()=>resolveKnock('ai'), 1000);
+      return;
+    }
+  }
+
+  let tookDiscard = false;
+  if(state.discardPile.length){
+    const top = state.discardPile[state.discardPile.length-1];
+    const before = deadwoodPoints(state.aiHand);
+    const after = bestKnock([...state.aiHand, top]).pts;
+    const improvement = before - after;
+    if(state.aiLevel === 'beginner'){
+      if(improvement > 0 && Math.random() < 0.5) tookDiscard = true;
+    } else if(state.aiLevel === 'novice'){
+      if(improvement > 3) tookDiscard = true;
+    } else {
+      if(improvement > 0) tookDiscard = true;
+    }
+  }
+
+  state.busy = true;
+  if(tookDiscard){
+    const top = state.discardPile.pop();
+    state.note = 'AI TAKES your discard (' + top.rank + top.suit + ')';
+    render();
+    animateFly($('discardCard'), $('opponentHandRow'), top, ()=>{
+      state.aiHand.push(top);
+      sortHand(state.aiHand);
+      render();
+      later(aiMaybeKnockOrDiscard, 900);
+    }, { duration: 1700 });
+  } else {
+    if(state.deck.length === 0){ state.busy = false; endHandDraw(); return; }
+    const c = state.deck.pop();
+    state.note = 'AI draws from the STOCK';
+    render();
+    animateFly($('deckCard'), $('opponentHandRow'), c, ()=>{
+      state.aiHand.push(c);
+      sortHand(state.aiHand);
+      render();
+      later(aiMaybeKnockOrDiscard, 900);
+    }, { duration: 1100, faceDown: true });
+  }
+}
+
+function aiPlaceDiscard(card, note, then){
+  state.note = note;
+  render();
+  animateFly($('opponentHandRow'), $('discardCard'), card, ()=>{
+    state.discardPile.push(card);
+    then();
+  }, { duration: 1500 });
+}
+
+function aiMaybeKnockOrDiscard(){
+  if(state.handOver) return;
+  const info = knockAllowed(state.aiHand);
+  if(info){
+    const isGin = info.cnt === 0;
+    const chance = isGin ? 1 : (state.aiLevel==='pro' ? 1 : state.aiLevel==='novice' ? 0.85 : 0.4);
+    if(Math.random() < chance){
+      state.busy = true;
+      if(info.card){
+        const idx = state.aiHand.findIndex(c=>c.id===info.card.id);
+        const [c] = state.aiHand.splice(idx,1);
+        aiPlaceDiscard(c, isGin ? 'AI goes GIN!' : 'AI KNOCKS!', ()=>{
+          render();
+          later(()=>resolveKnock('ai'), 700);
+        });
+      } else {
+        later(()=>resolveKnock('ai'), 700);
+      }
+      return;
+    }
+  }
+  aiDiscardOnly();
+}
+
+function connectivity(card, hand){
+  let s = 0;
+  for(const x of hand){
+    if(x===card) continue;
+    if(x.rank===card.rank) s += 2;
+    else if(x.suit===card.suit){
+      const d = Math.abs(rankVal(x.rank)-rankVal(card.rank));
+      if(d===1) s += 2; else if(d===2) s += 1;
+    }
+  }
+  return s;
+}
+
+function aiDiscardOnly(){
+  if(state.handOver) return;
+  const hand = state.aiHand;
+  const dw = analyzeHand(hand).deadwood;
+  let discard;
+  if(state.aiLevel==='beginner'){
+    discard = dw.length ? dw[Math.floor(Math.random()*dw.length)] : hand[0];
+  } else if(state.aiLevel==='novice'){
+    discard = dw.length ? dw.slice().sort((a,b)=>cardPts(b)-cardPts(a))[0] : hand[0];
+  } else {
+    let bestKey = Infinity; discard = hand[0];
+    for(const c of hand){
+      const rest = hand.filter(x=>x!==c);
+      const key = deadwoodPoints(rest)*100 + connectivity(c, hand);
+      if(key < bestKey){ bestKey = key; discard = c; }
+    }
+  }
+  const idx = hand.findIndex(c=>c.id===discard.id);
+  if(idx>=0) hand.splice(idx,1);
+  state.busy = true;
+  aiPlaceDiscard(discard, 'AI DISCARDS (' + discard.rank + discard.suit + ')', ()=>{
+    state.turn = 'player';
+    state.phase = 'draw';
+    state.busy = false;
+    state.note = '';
+    render();
+    if(checkStockOut()) return;
+    startTimer();
+  });
+}
+
+function aiWantsUpcard(card){
+  if(!card) return false;
+  const before = deadwoodPoints(state.aiHand);
+  const after = bestKnock([...state.aiHand, card]).pts;
+  const improvement = before - after;
+  if(state.aiLevel==='beginner') return beginnerWantsCard(state.aiHand, card);
+  if(state.aiLevel==='novice'){
+    if(improvement >= 3) return true;
+    return beginnerWantsCard(state.aiHand, card) && improvement > 0;
+  }
+  return improvement > 0;
+}
+
+function beginnerWantsCard(hand, card){
+  const rv = rankVal(card.rank);
+  if(hand.some(c=>c.rank===card.rank)) return true;
+  for(const c of hand){
+    if(c.suit !== card.suit) continue;
+    const diff = Math.abs(rankVal(c.rank) - rv);
+    if(diff === 1 || diff === 2) return true;
+  }
+  return false;
+}
+
+function checkStockOut(){
+  if(state.deck.length <= 2 && !state.handOver){
+    endHandDraw();
+    return true;
+  }
+  return false;
+}
+
+function endHandDraw(){
+  stopTimer();
+  state.handOver = true;
+  state.busy = true;
+  state.reveal = true;
+  state.lastMsg = 'Stock is out - hand is a draw.';
+  render();
+  later(()=>{
+    showResult({
+      title: 'Hand is a draw',
+      sub: 'The stock ran down to 2 cards. No points scored. Here are both hands:',
+      nextLabel: 'Redeal',
+      onNext: ()=>{ hideResult(); startHand(); }
+    });
+  }, 700);
+}
+
+function dwPts(an){ return an.deadwood.reduce((t,c)=>t+cardPts(c),0); }
+
+function renderResultHand(containerId, hand, laidIds, an){
+  const box = $(containerId);
+  box.innerHTML = '';
+  const a = an || analyzeHand(hand);
+  const byRankSuit = (x,y)=> (rankVal(x.rank)-rankVal(y.rank)) || (SUITS.indexOf(x.suit)-SUITS.indexOf(y.suit));
+  const addGroup = (cards, cls)=>{
+    const g = document.createElement('div');
+    g.className = 'res-group ' + cls;
+    cards.forEach(c=>{
+      const el = makeCardEl(c, { small:true });
+      if(laidIds && laidIds.indexOf(c.id) >= 0) el.classList.add('laid');
+      g.appendChild(el);
+    });
+    box.appendChild(g);
+  };
+  a.melds.forEach(m=> addGroup(m.slice().sort(byRankSuit), 'meld'));
+  if(a.deadwood.length) addGroup(a.deadwood.slice().sort(byRankSuit), 'dw');
+  return a;
+}
+
+function showResult(o){
+  $('resTitle').textContent = o.title || '';
+  $('resSub').textContent = o.sub || '';
+  const aiA  = renderResultHand('resAI',  state.aiHand,     o.aiLaid,  o.aiAn);
+  const youA = renderResultHand('resYou', state.playerHand, o.youLaid, o.youAn);
+  $('resAILabel').textContent  = "AI's hand"  + (o.aiTag  ? ' (' + o.aiTag  + ')' : '') + ' - deadwood ' + dwPts(aiA);
+  $('resYouLabel').textContent = 'Your hand' + (o.youTag ? ' (' + o.youTag + ')' : '') + ' - deadwood ' + dwPts(youA);
+  $('resNext').textContent = o.nextLabel || 'Next Hand';
+  state.nextAction = o.onNext || null;
+  $('resultPanel').classList.remove('hidden');
+}
+
+function hideResult(){
+  $('resultPanel').classList.add('hidden');
+}
+
+function recordMatch(){
+  const youWon = state.playerScore >= state.targetScore && state.playerScore >= state.aiScore;
+  if(youWon){ state.record.wins++; state.record.curYou++; }
+  else { state.record.losses++; state.record.curAI++; }
+  let seriesMsg = '';
+  if(state.record.curYou >= 3 || state.record.curAI >= 3){
+    if(state.record.curYou >= 3){ state.record.seriesWins++; seriesMsg = ' You won the series!'; }
+    else { state.record.seriesLosses++; seriesMsg = ' AI won the series.'; }
+    state.record.curYou = 0;
+    state.record.curAI = 0;
+  }
+  saveRecord();
+  render();
+  return { youWon: youWon, text: (youWon ? 'You win the match!' : 'AI wins the match.') + seriesMsg };
+}
+
+function resetMatchScores(){
+  state.playerScore = 0;
+  state.aiScore = 0;
+  state.handOver = false;
+  state.busy = false;
+  state.dealer = Math.random() < 0.5 ? 'player' : 'ai';
+  startHand();
+}
+
+function resolveKnock(knocker){
+  stopTimer();
+  state.handOver = true;
+  state.busy = true;
+  state.reveal = true;
+  const knockerIsPlayer = knocker === 'player';
+  const knockHand = knockerIsPlayer ? state.playerHand : state.aiHand;
+  const oppHand   = knockerIsPlayer ? state.aiHand : state.playerHand;
+  let kA = analyzeHand(knockHand);
+  if(state.gameType !== 'straight' && kA.deadwood.length > 1){
+    const alt = analyzeHand(knockHand, 'count');
+    if(alt.deadwood.length <= 1) kA = alt;
+  }
+  const kDW = kA.deadwood.reduce((s,c)=>s+cardPts(c),0);
+  const isGin = kA.deadwood.length === 0;
+  const oppRaw = deadwoodPoints(oppHand);
+  const oppLayoff = layoffPoints(oppHand, kA.melds, state.gameType, isGin);
+  const laid = lastLayoff.map(c=>c.id);
+  let pPts=0, aPts=0, msg='';
+  if(knockerIsPlayer){
+    if(isGin){
+      pPts = state.ginBonus + oppLayoff;
+      msg = 'Gin! You score ' + pPts;
+    } else if(oppLayoff <= kDW){
+      aPts = state.undercutBonus + (kDW - oppLayoff);
+      msg = 'AI undercuts! +' + aPts + ' to AI';
+    } else {
+      pPts = oppLayoff - kDW;
+      msg = 'You knocked. +' + pPts;
+    }
+  } else {
+    if(isGin){
+      aPts = state.ginBonus + oppLayoff;
+      msg = 'AI Gin! +' + aPts + ' to AI';
+    } else if(oppLayoff <= kDW){
+      pPts = state.undercutBonus + (kDW - oppLayoff);
+      msg = 'You undercut AI! +' + pPts;
+    } else {
+      aPts = oppLayoff - kDW;
+      msg = 'AI knocked. +' + aPts + ' to AI';
+    }
+  }
+  state.playerScore += pPts;
+  state.aiScore += aPts;
+  state.lastMsg = msg;
+  render();
+
+  const who = knockerIsPlayer ? 'You' : 'The AI';
+  const opp = knockerIsPlayer ? 'the AI' : 'you';
+  let detail;
+  if(isGin){
+    detail = who + ' went gin. ' + opp.charAt(0).toUpperCase() + opp.slice(1) + ' had ' + oppRaw + ' deadwood points.';
+  } else {
+    detail = who + ' knocked with ' + kDW + ' deadwood. ' + opp.charAt(0).toUpperCase() + opp.slice(1) + ' had ' + oppRaw + ' deadwood' +
+      (laid.length ? ' (' + oppLayoff + ' after laying off ' + laid.length + ' card' + (laid.length>1?'s':'') + ')' : '') + '.';
+  }
+
+  state.dealer = (pPts > aPts) ? 'player' : 'ai';
+  const matchOver = state.playerScore >= state.targetScore || state.aiScore >= state.targetScore;
+  let title = msg, nextLabel = 'Next Hand', onNext = ()=>{ hideResult(); startHand(); };
+  if(matchOver){
+    const r = recordMatch();
+    title = msg;
+    nextLabel = 'View Match Summary';
+    onNext = ()=>{ hideResult(); showMatchSummary(r.youWon); };
+  }
+  const kTag = isGin ? 'GIN' : 'knocked';
+  later(()=>{
+    showResult({
+      title: title,
+      sub: detail,
+      nextLabel: nextLabel,
+      onNext: onNext,
+      aiLaid:  knockerIsPlayer ? laid : [],
+      youLaid: knockerIsPlayer ? [] : laid,
+      aiAn:  knockerIsPlayer ? null : kA,
+      youAn: knockerIsPlayer ? kA : null,
+      aiTag:  knockerIsPlayer ? (laid.length ? 'laid off ' + laid.length : '') : kTag,
+      youTag: knockerIsPlayer ? kTag : (laid.length ? 'laid off ' + laid.length : '')
+    });
+  }, 700);
+}
+
+function showMatchSummary(youWon){
+  $('summaryTitle').textContent = youWon ? 'VICTORY!' : 'GAME OVER';
+  $('summaryWinnerText').textContent = youWon ? 'You won the match!' : 'AI won the match!';
+  $('summaryWinnerText').style.color = youWon ? '#ffe484' : '#ff9f9f';
+  $('summaryPlayerScore').textContent = state.playerScore;
+  $('summaryAIScore').textContent = state.aiScore;
+  $('summaryGameType').textContent = state.gameType === 'straight' ? 'Straight Gin' : 'One Card Knock';
+  $('summaryRecord').textContent = state.record.wins + ' - ' + state.record.losses;
+  $('summarySeriesScore').textContent = state.record.curYou + ' - ' + state.record.curAI;
+  $('summarySeriesWinsLosses').textContent = state.record.seriesWins + ' - ' + state.record.seriesLosses;
+  $('matchSummaryPanel').classList.remove('hidden');
+}
+
+function hideMatchSummary(){
+  $('matchSummaryPanel').classList.add('hidden');
+}
+
+function returnToHome(){
+  hideMatchSummary();
+  hideResult();
+  cancelPending();
+  stopTimer();
+  $('startScreen').classList.remove('hidden');
+  render();
+}
+
+function saveRecord(){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.record)); } catch(e){}
+}
+function loadRecord(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) state.record = Object.assign(state.record, JSON.parse(raw));
+  } catch(e){}
+}
+function resetRecord(){
+  state.record = { wins:0, losses:0, seriesWins:0, seriesLosses:0, curYou:0, curAI:0 };
+  saveRecord();
+  render();
+}
+
+let toastT = null;
+function showToast(msg, ms){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>t.classList.remove('show'), ms || 2200);
+}
+
+function readSettings(){
+  state.gameType = $('setGameType').value;
+  state.aiLevel = $('aiLevelSelect').value;
+  state.targetScore = parseInt($('targetScoreInput').value, 10) || 100;
+  state.ginBonus = parseInt($('ginBonusInput').value, 10) || 0;
+  state.undercutBonus = parseInt($('undercutInput').value, 10) || 0;
+  state.timerSeconds = parseInt($('timerSelect').value, 10) || 0;
+  document.querySelectorAll('.gtype-card').forEach(c=>{
+    c.classList.toggle('selected', c.dataset.gtype === state.gameType);
+  });
+  $('undercutRow').classList.toggle('disabled', state.gameType === 'straight');
+}
+
+function syncSettingsUI(){
+  $('targetScoreVal').textContent = $('targetScoreInput').value;
+  $('ginBonusVal').textContent = $('ginBonusInput').value;
+  $('undercutVal').textContent = $('undercutInput').value;
+  const isStraight = $('setGameType').value === 'straight';
+  $('undercutRow').classList.toggle('disabled', isStraight);
+  document.querySelectorAll('.gtype-card').forEach(c=>{
+    c.classList.toggle('selected', c.dataset.gtype === $('setGameType').value);
+  });
+}
+
+function newMatch(){
+  cancelPending();
+  hideResult();
+  stopTimer();
+  readSettings();
+  state.playerScore = 0;
+  state.aiScore = 0;
+  state.handOver = false;
+  state.busy = false;
+  state.dealer = Math.random() < 0.5 ? 'player' : 'ai';
+  startHand();
+}
+
+function wireEvents(){
+  document.querySelectorAll('.gtype-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      $('setGameType').value = card.dataset.gtype;
+      syncSettingsUI();
+    });
+  });
+  $('startGameBtn').addEventListener('click', ()=>{
+    readSettings();
+    $('startScreen').classList.add('hidden');
+    newMatch();
+  });
+  $('startSettingsBtn').addEventListener('click', ()=>{
+    $('settingsPanel').classList.remove('hidden');
+  });
+
+  $('playAgainBtn').addEventListener('click', ()=>{
+    hideMatchSummary();
+    resetMatchScores();
+  });
+  $('homePageBtn').addEventListener('click', returnToHome);
+
+  $('deckCard').addEventListener('click', drawFromDeck);
+  $('discardPileWrap').addEventListener('click', (e)=>{
+    if(e.target.closest('#passBtnWrap')) return;
+    if(state.phase === 'offer') handleTakeUpcard();
+    else drawFromDiscard();
+  });
+  $('passBtn').addEventListener('click', handlePass);
+  $('knockBtn').addEventListener('click', playerKnock);
+  $('sortBtn').addEventListener('click', ()=>{ sortHand(state.playerHand); render(); });
+  $('resNext').addEventListener('click', ()=>{ const f = state.nextAction; state.nextAction = null; if(f) f(); });
+  $('newGameBtn').addEventListener('click', ()=>{
+    if(confirm('Start a new match?')) newMatch();
+  });
+  $('settingsToggle').addEventListener('click', ()=> $('settingsPanel').classList.remove('hidden'));
+  $('settingsClose').addEventListener('click', ()=>{
+    const wasType = state.gameType;
+    const wasLevel = state.aiLevel;
+    readSettings();
+    $('settingsPanel').classList.add('hidden');
+    if(!$('startScreen').classList.contains('hidden')){
+      render();
+      return;
+    }
+    if(wasType !== state.gameType || wasLevel !== state.aiLevel){
+      showToast('Game type / AI level applies to the next match');
+      state.gameType = wasType;
+      state.aiLevel = wasLevel;
+    }
+    render();
+  });
+
+  ['targetScoreInput','ginBonusInput','undercutInput'].forEach(id=>{
+    $(id).addEventListener('input', syncSettingsUI);
+  });
+  $('setGameType').addEventListener('change', syncSettingsUI);
+
+  $('resetRecordBtn').addEventListener('click', ()=>{
+    if(confirm('Erase all wins, losses, and series record?')) resetRecord();
+  });
+
+  document.addEventListener('touchmove', e=>{
+    if(!e.target.closest('.settings-panel')) e.preventDefault();
+  }, { passive:false });
+}
+
+function boot(){
+  loadRecord();
+  wireEvents();
+  syncSettingsUI();
+  render();
+}
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+
+})();
+</script>
+</body>
+</html>
