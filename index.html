@@ -136,7 +136,6 @@
   .res-group.meld { background:rgba(61,158,90,0.22); border:1px solid #3d9e5a; }
   .res-group.dw { background:rgba(168,58,58,0.22); border:1px solid #a83a3a; }
   .res-group .card { cursor:default; }
-  .card.laid { box-shadow: 0 0 0 3px #7fe0a0, 0 3px 6px rgba(0,0,0,0.55); }
   .res-legend { font-size:0.68rem; color:#8fb894; line-height:1.4; }
   .res-next { margin-top:auto; padding:14px; font-size:1rem; }
 
@@ -165,13 +164,13 @@
   <h1>Davis Gin Rummy</h1>
   <h2>Choose Game Type</h2>
   <div class="gtype-grid">
-    <div class="gtype-card" data-gtype="straight">
+    <div class="gtype-card selected" data-gtype="straight">
       Straight Gin
       <span class="sub">No knock. Must meld all 10 cards.</span>
     </div>
-    <div class="gtype-card selected" data-gtype="oneCard">
-      One Card Knock
-      <span class="sub">Knock with 1 deadwood card. Layoffs allowed.</span>
+    <div class="gtype-card" data-gtype="nineCard">
+      Nine Card Gin
+      <span class="sub">No Aces or Kings. Must meld all 9 cards.</span>
     </div>
   </div>
   <button class="start-btn secondary" id="startSettingsBtn">&#9881;&#xFE0E; Settings</button>
@@ -218,7 +217,7 @@
   <button class="btn small" id="newGameBtn">New</button>
   <button class="btn small" id="sortBtn">Sort</button>
   <div class="message" id="messageBox">Tap STOCK or DISCARD to draw<span class="timer-badge" id="timerBadge">30</span></div>
-  <button class="btn small primary" id="knockBtn" disabled>Knock</button>
+  <button class="btn small primary" id="knockBtn" disabled>Gin!</button>
 </div>
 
 <!-- SETTINGS PANEL -->
@@ -229,8 +228,8 @@
   <div class="setting-row">
     <label for="setGameType">Game</label>
     <select id="setGameType">
-      <option value="straight">Straight Gin</option>
-      <option value="oneCard" selected>One Card Knock</option>
+      <option value="straight" selected>Straight Gin</option>
+      <option value="nineCard">Nine Card Gin</option>
     </select>
   </div>
 
@@ -261,11 +260,11 @@
       <span class="range-val" id="ginBonusVal">20</span>
     </div>
   </div>
-  <div class="setting-row" id="undercutRow">
-    <label>Undercut Bonus</label>
+  <div class="setting-row" id="bigGinRow">
+    <label>Big Gin Bonus</label>
     <div class="range-wrap">
-      <input type="range" id="undercutInput" value="20" min="0" max="100" step="5">
-      <span class="range-val" id="undercutVal">20</span>
+      <input type="range" id="bigGinInput" value="30" min="0" max="100" step="5">
+      <span class="range-val" id="bigGinVal">30</span>
     </div>
   </div>
 
@@ -306,7 +305,7 @@
   <div class="res-hand" id="resAI"></div>
   <div class="res-label" id="resYouLabel">Your hand</div>
   <div class="res-hand" id="resYou"></div>
-  <div class="res-legend">Green boxes = melds &middot; Red box = deadwood &middot; Outlined card = laid off on the knocker's melds</div>
+  <div class="res-legend">Green boxes = melds &middot; Red box = deadwood</div>
   <button class="btn primary res-next" id="resNext">Next Hand</button>
 </div>
 
@@ -328,7 +327,7 @@
     </div>
 
     <div class="summary-stats">
-      <div class="row"><span>Game Type:</span><b id="summaryGameType">One Card Knock</b></div>
+      <div class="row"><span>Game Type:</span><b id="summaryGameType">Straight Gin</b></div>
       <div class="row"><span>All-Time Wins / Losses:</span><b id="summaryRecord">0 - 0</b></div>
       <div class="row"><span>Best of 5 Series Score:</span><b id="summarySeriesScore">0 - 0</b></div>
       <div class="row"><span>Series Wins / Losses:</span><b id="summarySeriesWinsLosses">0 - 0</b></div>
@@ -358,8 +357,8 @@ function isRed(c){ return SUIT_RED[c.suit]; }
 
 const state = {
   playerScore: 0, aiScore: 0,
-  targetScore: 100, ginBonus: 20, undercutBonus: 20,
-  gameType: 'oneCard', aiLevel: 'novice',
+  targetScore: 100, ginBonus: 20, bigGinBonus: 30,
+  gameType: 'straight', aiLevel: 'novice',
   timerSeconds: 0,
   deck: [], playerHand: [], aiHand: [], discardPile: [],
   upcard: null,
@@ -382,6 +381,9 @@ const state = {
 
 const $ = id => document.getElementById(id);
 
+// Cards dealt to each player: 10 in Straight Gin, 9 in Nine Card Gin.
+function handSize(){ return state.gameType === 'nineCard' ? 9 : 10; }
+
 function later(fn, ms){
   const id = setTimeout(()=>{
     state.pendingTimeouts = state.pendingTimeouts.filter(x=>x!==id);
@@ -399,8 +401,10 @@ function cancelPending(){
 function buildDeck(){
   const d = [];
   let cardIdCounter = 0;
+  const strip = state.gameType === 'nineCard';
   for(const s of SUITS) {
     for(const r of RANKS){
+      if(strip && (r === 'A' || r === 'K')) continue; // Nine Card Gin: 44-card deck
       d.push({ id:'c_'+s+'_'+r+'_'+(++cardIdCounter), suit:s, rank:r });
     }
   }
@@ -527,51 +531,22 @@ function bestKnock(hand, mode){
   return best;
 }
 
+// Returns null if the hand cannot go gin right now.
+// Otherwise { card, pts, cnt, bigGin }:
+//   card   = the card to discard when going out (null = nothing to discard)
+//   bigGin = true when every card in the oversized hand (11 in Straight Gin,
+//            10 in Nine Card Gin) is melded, so nothing is discarded.
 function knockAllowed(hand){
-  const limit = state.gameType === 'straight' ? 0 : 1;
-  if(hand.length === 10){
+  const n = handSize();
+  if(hand.length === n){
     const a = analyzeHand(hand, 'count');
-    const cnt = a.deadwood.length;
-    const pts = a.deadwood.reduce((t,c)=>t+cardPts(c),0);
-    return cnt <= limit ? { card: null, pts: pts, cnt: cnt } : null;
+    return a.deadwood.length === 0 ? { card: null, pts: 0, cnt: 0, bigGin: false } : null;
   }
-  if(hand.length !== 11) return null;
+  if(hand.length !== n + 1) return null;
+  const full = analyzeHand(hand, 'count');
+  if(full.deadwood.length === 0) return { card: null, pts: 0, cnt: 0, bigGin: true };
   const bk = bestKnock(hand, 'count');
-  return bk.cnt <= limit ? bk : null;
-}
-
-let lastLayoff = [];
-function layoffPoints(oppHand, knockerMelds, gameType, isGin){
-  lastLayoff = [];
-  if(isGin) return deadwoodPoints(oppHand);
-  if(gameType === 'straight') return deadwoodPoints(oppHand);
-  const targets = [];
-  for(const m of knockerMelds){
-    const isSet = m.every(c=>c.rank===m[0].rank);
-    if(isSet){
-      targets.push({ rank: m[0].rank, count: m.length, suits: m.map(c=>c.suit), type:'set' });
-    } else {
-      const sorted = m.slice().sort((a,b)=>rankVal(a.rank)-rankVal(b.rank));
-      targets.push({ suit: m[0].suit, lo: rankVal(sorted[0].rank), hi: rankVal(sorted[sorted.length-1].rank), type:'run' });
-    }
-  }
-  const remaining = [];
-  const dw = analyzeHand(oppHand).deadwood.slice().sort((a,b)=>rankVal(a.rank)-rankVal(b.rank));
-  for(const c of dw){
-    let placed = false;
-    for(const t of targets){
-      if(t.type==='run' && c.suit===t.suit){
-        const rv = rankVal(c.rank);
-        if(rv === t.lo-1){ t.lo = rv; placed = true; break; }
-        if(rv === t.hi+1){ t.hi = rv; placed = true; break; }
-      } else if(t.type==='set' && c.rank===t.rank && t.count < 4){
-        t.count++; placed = true; break;
-      }
-    }
-    if(!placed) remaining.push(c);
-  }
-  lastLayoff = dw.filter(c=>remaining.indexOf(c) < 0);
-  return remaining.reduce((s,c)=>s+cardPts(c),0);
+  return bk.cnt === 0 ? { card: bk.card, pts: bk.pts, cnt: 0, bigGin: false } : null;
 }
 
 function makeCardEl(card, opts){
@@ -654,7 +629,7 @@ function render(){
   }
   kb.disabled = false;
   kb.classList.toggle('dim', !info);
-  kb.textContent = (state.gameType==='straight' || (info && info.cnt===0)) ? 'Gin!' : 'Knock';
+  kb.textContent = 'Gin!';
 
   if(state.handOver){ setMsg(state.lastMsg || 'Hand over'); }
   else if(state.phase==='offer'){
@@ -662,9 +637,12 @@ function render(){
   }
   else if(state.turn==='player'){
     if(state.phase==='draw'){
-      setMsg(info ? ('You can go out! Tap ' + kb.textContent + ' (or draw)') : 'Tap STOCK or DISCARD to draw');
+      setMsg(info ? ('You can go out! Tap Gin! (or draw)') : 'Tap STOCK or DISCARD to draw');
     }
-    else if(state.phase==='discard') setMsg(state.selectedId ? 'Tap again to discard' : 'Tap to select, drag to reorder');
+    else if(state.phase==='discard'){
+      if(info && info.bigGin) setMsg('BIG GIN! Tap Gin!');
+      else setMsg(state.selectedId ? 'Tap again to discard' : 'Tap to select, drag to reorder');
+    }
   } else {
     setMsg(state.note || 'AI is thinking\u2026');
   }
@@ -854,8 +832,9 @@ function timeoutAction(){
 function startHand(){
   stopTimer();
   state.deck = buildDeck();
-  state.playerHand = state.deck.splice(0,10);
-  state.aiHand = state.deck.splice(0,10);
+  const n = handSize();
+  state.playerHand = state.deck.splice(0,n);
+  state.aiHand = state.deck.splice(0,n);
   state.upcard = state.deck.pop();
   state.discardPile = [];
   state.phase = 'offer';
@@ -991,17 +970,20 @@ function drawFromDiscard(){
 
 function explainNoKnock(){
   const hand = state.playerHand;
-  const limit = state.gameType === 'straight' ? 0 : 1;
+  const n = handSize();
   let an;
-  if(hand.length === 11){
+  if(hand.length === n + 1){
     const bk = bestKnock(hand, 'count');
     an = analyzeHand(hand.filter(c=>c.id !== bk.card.id), 'count');
   } else {
     an = analyzeHand(hand, 'count');
   }
   const names = an.deadwood.map(c=>c.rank + c.suit).join(' ');
-  showToast("Can't " + (limit === 0 ? 'go gin' : 'knock') + " yet: the game counts " + an.deadwood.length +
-            " deadwood card" + (an.deadwood.length === 1 ? '' : 's') + " (" + names + "). Need " + limit + " or fewer. Runs are ace-low only (A-2-3 yes, Q-K-A no).", 5500);
+  const runNote = state.gameType === 'nineCard'
+    ? 'Runs use 2 through Q (no Aces or Kings in this game).'
+    : 'Runs are ace-low only (A-2-3 yes, Q-K-A no).';
+  showToast("Can't go gin yet: the game counts " + an.deadwood.length +
+            " deadwood card" + (an.deadwood.length === 1 ? '' : 's') + " (" + names + "). Need 0. " + runNote, 5500);
 }
 
 function playerKnock(){
@@ -1033,15 +1015,11 @@ function aiTurn(){
 
   const pre = knockAllowed(state.aiHand);
   if(pre){
-    const preGin = pre.cnt === 0;
-    const preChance = preGin ? 1 : (state.aiLevel==='pro' ? 1 : state.aiLevel==='novice' ? 0.85 : 0.4);
-    if(Math.random() < preChance){
-      state.busy = true;
-      state.note = preGin ? 'AI goes GIN!' : 'AI KNOCKS!';
-      render();
-      later(()=>resolveKnock('ai'), 1000);
-      return;
-    }
+    state.busy = true;
+    state.note = 'AI goes GIN!';
+    render();
+    later(()=>resolveKnock('ai'), 1000);
+    return;
   }
 
   let tookDiscard = false;
@@ -1097,22 +1075,21 @@ function aiMaybeKnockOrDiscard(){
   if(state.handOver) return;
   const info = knockAllowed(state.aiHand);
   if(info){
-    const isGin = info.cnt === 0;
-    const chance = isGin ? 1 : (state.aiLevel==='pro' ? 1 : state.aiLevel==='novice' ? 0.85 : 0.4);
-    if(Math.random() < chance){
-      state.busy = true;
-      if(info.card){
-        const idx = state.aiHand.findIndex(c=>c.id===info.card.id);
-        const [c] = state.aiHand.splice(idx,1);
-        aiPlaceDiscard(c, isGin ? 'AI goes GIN!' : 'AI KNOCKS!', ()=>{
-          render();
-          later(()=>resolveKnock('ai'), 700);
-        });
-      } else {
+    state.busy = true;
+    if(info.card){
+      const idx = state.aiHand.findIndex(c=>c.id===info.card.id);
+      const [c] = state.aiHand.splice(idx,1);
+      aiPlaceDiscard(c, 'AI goes GIN!', ()=>{
+        render();
         later(()=>resolveKnock('ai'), 700);
-      }
-      return;
+      });
+    } else {
+      // Big Gin (or already gin): nothing to discard
+      state.note = info.bigGin ? 'AI goes BIG GIN!' : 'AI goes GIN!';
+      render();
+      later(()=>resolveKnock('ai'), 700);
     }
+    return;
   }
   aiDiscardOnly();
 }
@@ -1222,7 +1199,6 @@ function renderResultHand(containerId, hand, laidIds, an){
     g.className = 'res-group ' + cls;
     cards.forEach(c=>{
       const el = makeCardEl(c, { small:true });
-      if(laidIds && laidIds.indexOf(c.id) >= 0) el.classList.add('laid');
       g.appendChild(el);
     });
     box.appendChild(g);
@@ -1235,8 +1211,8 @@ function renderResultHand(containerId, hand, laidIds, an){
 function showResult(o){
   $('resTitle').textContent = o.title || '';
   $('resSub').textContent = o.sub || '';
-  const aiA  = renderResultHand('resAI',  state.aiHand,     o.aiLaid,  o.aiAn);
-  const youA = renderResultHand('resYou', state.playerHand, o.youLaid, o.youAn);
+  const aiA  = renderResultHand('resAI',  state.aiHand,     null,  o.aiAn);
+  const youA = renderResultHand('resYou', state.playerHand, null, o.youAn);
   $('resAILabel').textContent  = "AI's hand"  + (o.aiTag  ? ' (' + o.aiTag  + ')' : '') + ' - deadwood ' + dwPts(aiA);
   $('resYouLabel').textContent = 'Your hand' + (o.youTag ? ' (' + o.youTag + ')' : '') + ' - deadwood ' + dwPts(youA);
   $('resNext').textContent = o.nextLabel || 'Next Hand';
@@ -1273,6 +1249,8 @@ function resetMatchScores(){
   startHand();
 }
 
+// Every out is a Gin (no knocking in either game).
+// Big Gin = the oversized hand (11 cards Straight / 10 cards Nine Card) is fully melded.
 function resolveKnock(knocker){
   stopTimer();
   state.handOver = true;
@@ -1281,39 +1259,19 @@ function resolveKnock(knocker){
   const knockerIsPlayer = knocker === 'player';
   const knockHand = knockerIsPlayer ? state.playerHand : state.aiHand;
   const oppHand   = knockerIsPlayer ? state.aiHand : state.playerHand;
-  let kA = analyzeHand(knockHand);
-  if(state.gameType !== 'straight' && kA.deadwood.length > 1){
-    const alt = analyzeHand(knockHand, 'count');
-    if(alt.deadwood.length <= 1) kA = alt;
-  }
-  const kDW = kA.deadwood.reduce((s,c)=>s+cardPts(c),0);
-  const isGin = kA.deadwood.length === 0;
+  const kA = analyzeHand(knockHand);
+  const isBig = kA.deadwood.length === 0 && knockHand.length === handSize() + 1;
   const oppRaw = deadwoodPoints(oppHand);
-  const oppLayoff = layoffPoints(oppHand, kA.melds, state.gameType, isGin);
-  const laid = lastLayoff.map(c=>c.id);
+  const bonus = isBig ? state.bigGinBonus : state.ginBonus;
+  const pts = bonus + oppRaw;
+  const ginName = isBig ? 'BIG GIN' : 'Gin';
   let pPts=0, aPts=0, msg='';
   if(knockerIsPlayer){
-    if(isGin){
-      pPts = state.ginBonus + oppLayoff;
-      msg = 'Gin! You score ' + pPts;
-    } else if(oppLayoff <= kDW){
-      aPts = state.undercutBonus + (kDW - oppLayoff);
-      msg = 'AI undercuts! +' + aPts + ' to AI';
-    } else {
-      pPts = oppLayoff - kDW;
-      msg = 'You knocked. +' + pPts;
-    }
+    pPts = pts;
+    msg = ginName + '! You score ' + pPts;
   } else {
-    if(isGin){
-      aPts = state.ginBonus + oppLayoff;
-      msg = 'AI Gin! +' + aPts + ' to AI';
-    } else if(oppLayoff <= kDW){
-      pPts = state.undercutBonus + (kDW - oppLayoff);
-      msg = 'You undercut AI! +' + pPts;
-    } else {
-      aPts = oppLayoff - kDW;
-      msg = 'AI knocked. +' + aPts + ' to AI';
-    }
+    aPts = pts;
+    msg = 'AI ' + ginName + '! +' + aPts + ' to AI';
   }
   state.playerScore += pPts;
   state.aiScore += aPts;
@@ -1321,14 +1279,8 @@ function resolveKnock(knocker){
   render();
 
   const who = knockerIsPlayer ? 'You' : 'The AI';
-  const opp = knockerIsPlayer ? 'the AI' : 'you';
-  let detail;
-  if(isGin){
-    detail = who + ' went gin. ' + opp.charAt(0).toUpperCase() + opp.slice(1) + ' had ' + oppRaw + ' deadwood points.';
-  } else {
-    detail = who + ' knocked with ' + kDW + ' deadwood. ' + opp.charAt(0).toUpperCase() + opp.slice(1) + ' had ' + oppRaw + ' deadwood' +
-      (laid.length ? ' (' + oppLayoff + ' after laying off ' + laid.length + ' card' + (laid.length>1?'s':'') + ')' : '') + '.';
-  }
+  const opp = knockerIsPlayer ? 'The AI' : 'You';
+  const detail = who + ' went ' + (isBig ? 'Big Gin' : 'gin') + ' (' + bonus + ' bonus). ' + opp + ' had ' + oppRaw + ' deadwood points.';
 
   state.dealer = (pPts > aPts) ? 'player' : 'ai';
   const matchOver = state.playerScore >= state.targetScore || state.aiScore >= state.targetScore;
@@ -1339,19 +1291,17 @@ function resolveKnock(knocker){
     nextLabel = 'View Match Summary';
     onNext = ()=>{ hideResult(); showMatchSummary(r.youWon); };
   }
-  const kTag = isGin ? 'GIN' : 'knocked';
+  const kTag = isBig ? 'BIG GIN' : 'GIN';
   later(()=>{
     showResult({
       title: title,
       sub: detail,
       nextLabel: nextLabel,
       onNext: onNext,
-      aiLaid:  knockerIsPlayer ? laid : [],
-      youLaid: knockerIsPlayer ? [] : laid,
       aiAn:  knockerIsPlayer ? null : kA,
       youAn: knockerIsPlayer ? kA : null,
-      aiTag:  knockerIsPlayer ? (laid.length ? 'laid off ' + laid.length : '') : kTag,
-      youTag: knockerIsPlayer ? kTag : (laid.length ? 'laid off ' + laid.length : '')
+      aiTag:  knockerIsPlayer ? '' : kTag,
+      youTag: knockerIsPlayer ? kTag : ''
     });
   }, 700);
 }
@@ -1362,7 +1312,7 @@ function showMatchSummary(youWon){
   $('summaryWinnerText').style.color = youWon ? '#ffe484' : '#ff9f9f';
   $('summaryPlayerScore').textContent = state.playerScore;
   $('summaryAIScore').textContent = state.aiScore;
-  $('summaryGameType').textContent = state.gameType === 'straight' ? 'Straight Gin' : 'One Card Knock';
+  $('summaryGameType').textContent = state.gameType === 'nineCard' ? 'Nine Card Gin' : 'Straight Gin';
   $('summaryRecord').textContent = state.record.wins + ' - ' + state.record.losses;
   $('summarySeriesScore').textContent = state.record.curYou + ' - ' + state.record.curAI;
   $('summarySeriesWinsLosses').textContent = state.record.seriesWins + ' - ' + state.record.seriesLosses;
@@ -1411,20 +1361,17 @@ function readSettings(){
   state.aiLevel = $('aiLevelSelect').value;
   state.targetScore = parseInt($('targetScoreInput').value, 10) || 100;
   state.ginBonus = parseInt($('ginBonusInput').value, 10) || 0;
-  state.undercutBonus = parseInt($('undercutInput').value, 10) || 0;
+  state.bigGinBonus = parseInt($('bigGinInput').value, 10) || 0;
   state.timerSeconds = parseInt($('timerSelect').value, 10) || 0;
   document.querySelectorAll('.gtype-card').forEach(c=>{
     c.classList.toggle('selected', c.dataset.gtype === state.gameType);
   });
-  $('undercutRow').classList.toggle('disabled', state.gameType === 'straight');
 }
 
 function syncSettingsUI(){
   $('targetScoreVal').textContent = $('targetScoreInput').value;
   $('ginBonusVal').textContent = $('ginBonusInput').value;
-  $('undercutVal').textContent = $('undercutInput').value;
-  const isStraight = $('setGameType').value === 'straight';
-  $('undercutRow').classList.toggle('disabled', isStraight);
+  $('bigGinVal').textContent = $('bigGinInput').value;
   document.querySelectorAll('.gtype-card').forEach(c=>{
     c.classList.toggle('selected', c.dataset.gtype === $('setGameType').value);
   });
@@ -1496,7 +1443,7 @@ function wireEvents(){
     render();
   });
 
-  ['targetScoreInput','ginBonusInput','undercutInput'].forEach(id=>{
+  ['targetScoreInput','ginBonusInput','bigGinInput'].forEach(id=>{
     $(id).addEventListener('input', syncSettingsUI);
   });
   $('setGameType').addEventListener('change', syncSettingsUI);
